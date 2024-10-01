@@ -37,6 +37,7 @@ def proxy(url):
         params=params,
         json=data,
         verify=False,
+        timeout=5 
     )
 
     return (response.content, response.status_code, response.headers.items())

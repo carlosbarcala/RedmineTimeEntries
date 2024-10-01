@@ -12,6 +12,8 @@ load_dotenv()
 # Obtener los valores de las variables de entorno
 REDMINE_URL = os.getenv('REDMINE_URL', '')
 API_KEY = os.getenv('API_KEY', '')
+APP_PORT = os.getenv('APP_PORT', 3000)
+REDMINE_USER_ID = os.getenv('REDMINE_USER_ID', '')
 
 @app.route('/api/<path:url>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy(url):
@@ -24,6 +26,7 @@ def proxy(url):
 
     # Obtener los parámetros de la solicitud original
     params = request.args.to_dict()
+    params['user_id'] = REDMINE_USER_ID
     data = request.get_json(silent=True)
 
     # Enviar la solicitud a la API de Redmine con los parámetros recibidos por la URL y el cuerpo de la solicitud
@@ -43,4 +46,4 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    app.run(port=3000, debug=True)
+    app.run(port=APP_PORT, debug=True)

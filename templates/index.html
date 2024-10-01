@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendario de Tiempo Dedicado</title>
+    <title>Calendario de Tiempo Dedicado de Redmine</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
         #calendar {
@@ -39,8 +39,6 @@
             margin-bottom: 10px;
         }
     </style>
-    
-    
 </head>
 <body>
 
@@ -124,8 +122,6 @@
     const modal = $('#modal');
 
     const REDMINE_URL = 'http://localhost:3000/api';
-    const API_KEY = 'e94c9122d8c018b0344cdbfbf66e0e3442810bf7';
-    const USER_ID = '89';
 
     function generateCalendar(month, year) {
         calendarElement.innerHTML = '';
@@ -200,12 +196,11 @@
     function fetchMonthlyHours(fromDate, toDate) {
         const formattedFromDate = fromDate.toISOString().split('T')[0];
         const formattedToDate = toDate.toISOString().split('T')[0];
-        const url = `${REDMINE_URL}/time_entries.json?user_id=${USER_ID}&from=${formattedFromDate}&to=${formattedToDate}&limit=999`;
+        const url = `${REDMINE_URL}/time_entries.json?from=${formattedFromDate}&to=${formattedToDate}&limit=999`;
 
         fetch(url, {
             method: 'GET',
             headers: {
-                'X-Redmine-API-Key': API_KEY,
                 'Content-Type': 'application/json',
             }
         })
@@ -229,7 +224,6 @@
         modal.modal('show');
     }
 
-    // Función para cargar proyectos en el selector
     function loadProjects() {
         const projectSelect = document.getElementById('project');
         projectSelect.innerHTML = '<option value="">Cargando proyectos...</option>';
@@ -254,13 +248,11 @@
         .catch(error => console.error('Error fetching projects:', error));
     }
 
-    // Evento para cargar tareas cuando se selecciona un proyecto
     document.getElementById('project').addEventListener('change', function() {
         const projectId = this.value;
         loadTasks(projectId);
     });
 
-    // Función para cargar tareas del proyecto seleccionado
     function loadTasks(projectId) {
         const taskSelect = document.getElementById('task');
         taskSelect.innerHTML = '<option value="">Cargando tareas...</option>';
@@ -346,6 +338,7 @@
     document.getElementById('monthSelect').value = today.getMonth();
     populateYearOptions();
     generateCalendar(today.getMonth(), today.getFullYear());
+
 </script>
 
 </body>

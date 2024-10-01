@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario de Tiempo Dedicado</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        #calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin: 20px;
+        }
+        .day {
+            border: 1px solid #ccc;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        .day strong {
+            font-size: 16px;
+        }
+
+        .day span {
+            font-size: 24px;
+        }
+        .weekend {
+            background-color: #f8d7da;
+        }
+        .empty {
+            visibility: hidden; /* Ocultar días vacíos al inicio del mes */
+        }
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+    </style>
+    
+    
+</head>
+<body>
+
+<div class="container">
+    <h1 class="my-4">Calendario de Tiempo Dedicado</h1>
+
+    <!-- Selector de Mes -->
+    <div class="form-inline mb-4">
+        <label for="monthSelect" class="mr-2">Mes:</label>
+        <select id="monthSelect" class="form-control mr-2">
+            <option value="0">Enero</option>
+            <option value="1">Febrero</option>
+            <option value="2">Marzo</option>
+            <option value="3">Abril</option>
+            <option value="4">Mayo</option>
+            <option value="5">Junio</option>
+            <option value="6">Julio</option>
+            <option value="7">Agosto</option>
+            <option value="8">Septiembre</option>
+            <option value="9">Octubre</option>
+            <option value="10">Noviembre</option>
+            <option value="11">Diciembre</option>
+        </select>
+
+        <label for="yearSelect" class="mr-2">Año:</label>
+        <select id="yearSelect" class="form-control">
+            <!-- Se generan dinámicamente opciones de año -->
+        </select>
+
+        <button id="updateCalendar" class="btn btn-primary ml-2">Actualizar</button>
+    </div>
+
+    <div id="calendar"></div>
+</div>
+
+<!-- Modal -->
+<div id="modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Añadir Tiempo</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="timeForm">
+                    <div class="form-group">
+                        <label for="project">Proyecto:</label>
+                        <select class="form-control" id="project" required>
+                            <option value="">Seleccionar Proyecto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="task">Tarea:</label>
+                        <select class="form-control" id="task" required>
+                            <option value="">Seleccionar Tarea</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="hours">Horas:</label>
+                        <input type="number" class="form-control" id="hours" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="comments">Comentarios:</label>
+                        <textarea class="form-control" id="comments"></textarea>
+                    </div>
+                    <input type="hidden" id="date">
+                    <button type="submit" class="btn btn-primary">Añadir</button>
+                </form>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const calendarElement = document.getElementById('calendar');
+    const modal = $('#modal');
+
+    const REDMINE_URL = 'http://localhost:3000/api';
+    const API_KEY = 'e94c9122d8c018b0344cdbfbf66e0e3442810bf7';
+    const USER_ID = '89';
+
+    function generateCalendar(month, year) {
+        calendarElement.innerHTML = '';
+
+        // Mostrar los días de la semana como encabezado
+        const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const weekdaysRow = document.createElement('div');
+        weekdaysRow.className = 'weekdays';
+        weekdays.forEach(day => {
+            const dayHeader = document.createElement('div');
+            dayHeader.innerText = day;
+            weekdaysRow.appendChild(dayHeader);
+        });
+        //calendarElement.appendChild(weekdaysRow);
+
+        const date = new Date(year, month);
+        const fromDate = new Date(year, month, 1);
+        const toDate = new Date(year, month + 1, 0); // Último día del mes
+
+        // Calcular el día de la semana del primer día del mes (0 = domingo, 1 = lunes, etc.)
+        let firstDay = fromDate.getDay();
+        if (firstDay === 0) firstDay = 7; // Si el primer día es domingo, lo cambiamos a 7 para que la semana comience el lunes
+
+        // Insertar días vacíos al principio si el mes no empieza en lunes
+        for (let i = 1; i < firstDay; i++) {
+            const emptyElement = document.createElement('div');
+            emptyElement.className = 'day empty';
+            calendarElement.appendChild(emptyElement);
+        }
+
+        fetchMonthlyHours(fromDate, toDate);
+        
+        // Llenar los días del mes
+        while (date.getMonth() === month) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'day';
+
+            // Verificar si es fin de semana (sábado o domingo)
+            const dayOfWeek = date.getDay(); // 0 para domingo, 6 para sábado
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                dayElement.classList.add('weekend');
+            }
+            // fecha en formato año-mes-día
+            const dateFormatted = date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0');
+
+            dayElement.innerHTML = `<strong>${date.getDate()}</strong><br><span id="hours-${dateFormatted}">0 horas</span>`;
+
+            const addTimeButton = document.createElement('button');
+            addTimeButton.className = 'btn btn-info btn-sm mt-2';
+            addTimeButton.textContent = '+';
+            addTimeButton.setAttribute('data-date',dateFormatted);
+            addTimeButton.onclick = (event) => { openModal(event.target.getAttribute('data-date')); };
+
+
+            dayElement.appendChild(addTimeButton);
+            calendarElement.appendChild(dayElement);
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        // Insertar días vacíos al final si el mes no termina en domingo
+        let lastDay = toDate.getDay();
+        if (lastDay !== 0) {
+            for (let i = lastDay + 1; i <= 7; i++) {
+                const emptyElement = document.createElement('div');
+                emptyElement.className = 'day empty';
+                calendarElement.appendChild(emptyElement);
+            }
+        }
+    }
+
+    function fetchMonthlyHours(fromDate, toDate) {
+        const formattedFromDate = fromDate.toISOString().split('T')[0];
+        const formattedToDate = toDate.toISOString().split('T')[0];
+        const url = `${REDMINE_URL}/time_entries.json?user_id=${USER_ID}&from=${formattedFromDate}&to=${formattedToDate}&limit=999`;
+
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Redmine-API-Key': API_KEY,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const dailyHours = {};
+            data.time_entries.forEach(entry => {
+                const date = entry.spent_on;
+                dailyHours[date] = (dailyHours[date] || 0) + entry.hours;
+            });
+            for (const date in dailyHours) {
+                document.getElementById(`hours-${date}`).innerText = `${dailyHours[date]} horas`;
+            }
+        })
+        .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function openModal(date) {
+        document.getElementById('date').value = date;
+        loadProjects();
+        modal.modal('show');
+    }
+
+    // Función para cargar proyectos en el selector
+    function loadProjects() {
+        const projectSelect = document.getElementById('project');
+        projectSelect.innerHTML = '<option value="">Cargando proyectos...</option>';
+        
+        fetch(`${REDMINE_URL}/projects.json`, {
+            method: 'GET',
+            headers: {
+                'X-Redmine-API-Key': API_KEY,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            projectSelect.innerHTML = '<option value="">Seleccionar Proyecto</option>';
+            data.projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name;
+                projectSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error fetching projects:', error));
+    }
+
+    // Evento para cargar tareas cuando se selecciona un proyecto
+    document.getElementById('project').addEventListener('change', function() {
+        const projectId = this.value;
+        loadTasks(projectId);
+    });
+
+    // Función para cargar tareas del proyecto seleccionado
+    function loadTasks(projectId) {
+        const taskSelect = document.getElementById('task');
+        taskSelect.innerHTML = '<option value="">Cargando tareas...</option>';
+        
+        fetch(`${REDMINE_URL}/issues.json?project_id=${projectId}&limit=999`, {
+            method: 'GET',
+            headers: {
+                'X-Redmine-API-Key': API_KEY,
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            taskSelect.innerHTML = '<option value="">Seleccionar Tarea</option>';
+            data.issues.forEach(task => {
+                const option = document.createElement('option');
+                option.value = task.id;
+                option.textContent = task.subject;
+                taskSelect.appendChild(option);
+            });
+        })
+        .catch(error => console.error('Error fetching tasks:', error));
+    }
+
+    function populateYearOptions() {
+        const yearSelect = document.getElementById('yearSelect');
+        const currentYear = new Date().getFullYear();
+        for (let year = currentYear - 5; year <= currentYear + 5; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.text = year;
+            if (year === currentYear) {
+                option.selected = true;
+            }
+            yearSelect.appendChild(option);
+        }
+    }
+
+    document.getElementById('updateCalendar').onclick = function() {
+        const selectedMonth = document.getElementById('monthSelect').value;
+        const selectedYear = document.getElementById('yearSelect').value;
+        generateCalendar(parseInt(selectedMonth), parseInt(selectedYear));
+    };
+
+    document.getElementById('timeForm').onsubmit = function(event) {
+        event.preventDefault();
+        const project = document.getElementById('project').value;
+        const task = document.getElementById('task').value;
+        const hours = document.getElementById('hours').value;
+        const comments = document.getElementById('comments').value;
+        const date = document.getElementById('date').value;
+
+        const payload = {
+            time_entry: {
+                project_id: project,
+                issue_id: task,
+                hours: parseFloat(hours),
+                comments: comments,
+                spent_on: date
+            }
+        };
+
+        fetch(`${REDMINE_URL}/time_entries.json`, {
+            method: 'POST',
+            headers: {
+                'X-Redmine-API-Key': API_KEY,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => response.json())
+        .then(data => {
+            modal.modal('hide');
+            const selectedMonth = document.getElementById('monthSelect').value;
+            const selectedYear = document.getElementById('yearSelect').value;
+            generateCalendar(parseInt(selectedMonth), parseInt(selectedYear));
+
+        })
+        .catch(error => console.error('Error adding entry:', error));
+    };
+
+    const today = new Date();
+    document.getElementById('monthSelect').value = today.getMonth();
+    populateYearOptions();
+    generateCalendar(today.getMonth(), today.getFullYear());
+</script>
+
+</body>
+</html>

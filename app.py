@@ -1,12 +1,17 @@
 from flask import Flask, request, jsonify
 import requests
 from flask import render_template
+from dotenv import load_dotenv
+import os
 
 app = Flask(__name__)
 
-# Configura tu URL de Redmine y la clave API
-REDMINE_URL = 'https://gestion.sixtema.int'  # Cambia esto según tu instancia
-API_KEY = 'e94c9122d8c018b0344cdbfbf66e0e3442810bf7'  # Cambia esto por tu API key
+# Cargar las variables de entorno desde el archivo .env
+load_dotenv()
+
+# Obtener los valores de las variables de entorno
+REDMINE_URL = os.getenv('REDMINE_URL', '')
+API_KEY = os.getenv('API_KEY', '')
 
 @app.route('/api/<path:url>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def proxy(url):
